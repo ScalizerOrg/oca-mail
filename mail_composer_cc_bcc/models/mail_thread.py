@@ -150,6 +150,16 @@ class MailThread(models.AbstractModel):
         return super()._notify_thread_by_email(message, recipients_data, **kwargs)
 
     def _notify_thread(self, message, msg_vals=False, **kwargs):
-        if message.message_type == "notification":
+        # Skip cc/bcc only for incidental "notification" messages (e.g. a field
+        # tracking posted on the same is_from_composer env). The message being
+        # sent may be a "notification" too: message_post_with_source() uses it
+        # as default message_type, e.g. for the sale order confirmation email.
+        if msg_vals:
+            has_cc_bcc = bool(
+                msg_vals.get("recipient_cc_ids") or msg_vals.get("recipient_bcc_ids")
+            )
+        else:
+            has_cc_bcc = bool(message.recipient_cc_ids or message.recipient_bcc_ids)
+        if message.message_type == "notification" and not has_cc_bcc:
             self = self.with_context(skip_adding_cc_bcc=True)
         return super()._notify_thread(message, msg_vals, **kwargs)
